@@ -68,7 +68,7 @@ class WelcomeScreen extends StatelessWidget {
               // Admin Card
               _AccountTypeCard(
                 icon: Icons.shield_outlined,
-                title: 'Admin',
+                title: 'Agency',
                 subtitle: 'Manage your agency and team',
                 gradient: AppColors.adminGradient,
                 onTap: () => context.go('/auth/admin/login'),

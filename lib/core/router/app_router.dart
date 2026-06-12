@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smm_app/main.dart';
 import 'package:provider/provider.dart';
 import '../../shared/pages/profile_page.dart';
 import '../providers/auth_provider.dart';
@@ -23,6 +24,7 @@ import '../theme/app_theme.dart';
 class AppRouter {
   static GoRouter createRouter(BuildContext context) {
     return GoRouter(
+      navigatorKey: rootNavigatorKey,
       initialLocation: '/splash',
       redirect: (context, state) {
         final auth = Provider.of<AuthProvider>(context, listen: false);

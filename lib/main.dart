@@ -12,6 +12,9 @@ import 'core/services/update_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/dashboard/smm/smm_dashboard_screen.dart';
 
+// Global key — poori app mein kahi se bhi dialog dikha sakte hain
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -29,6 +32,20 @@ void main() async {
   ]);
 
   runApp(const MyApp());
+
+  // App render hone ke baad update check — Navigator ready hoga tab tak
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await Future.delayed(const Duration(seconds: 4));
+    final info = await UpdateService.checkForUpdate();
+    if (info == null) return;
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null) return;
+    showDialog(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (_) => UpdateDialog(info: info),
+    );
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -41,9 +58,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PostsProvider()),
         ChangeNotifierProvider(create: (_) => GdProjectProvider()),
-        ChangeNotifierProvider(
-          create: (_) => SocialProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => SocialProvider()),
         ChangeNotifierProvider(create: (_) => ClientDesignProjectProvider()),
         ChangeNotifierProvider(create: (_) => ClientCalendarProvider()),
       ],
@@ -55,39 +70,9 @@ class MyApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: AppTheme.darkTheme,
             routerConfig: router,
-            builder: (context, child) => _UpdateWrapper(child: child ?? const SizedBox()),
           );
         },
       ),
     );
   }
-}
-
-/// App load hone ke baad update check karta hai
-class _UpdateWrapper extends StatefulWidget {
-  final Widget child;
-  const _UpdateWrapper({required this.child});
-
-  @override
-  State<_UpdateWrapper> createState() => _UpdateWrapperState();
-}
-
-class _UpdateWrapperState extends State<_UpdateWrapper> {
-  @override
-  void initState() {
-    super.initState();
-    _checkUpdate();
-  }
-
-  Future<void> _checkUpdate() async {
-    // 2 second baad check karo taaki splash/login smooth rahe
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    final info = await UpdateService.checkForUpdate();
-    if (!mounted || info == null) return;
-    await UpdateDialog.show(context, info);
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }

@@ -1,20 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-/// GitHub par yeh JSON file upload karo:
-/// https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/version.json
-///
-/// version.json content:
-/// {
-///   "version": "1.0.1",
-///   "build": 2,
-///   "apk_url": "https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v1.0.1/app-release.apk",
-///   "release_notes": "Bug fixes aur improvements"
-/// }
 
 class UpdateInfo {
   final String latestVersion;
@@ -40,13 +30,17 @@ class UpdateInfo {
 class UpdateService {
   static const String _versionCheckUrl =
       'https://raw.githubusercontent.com/Growthcraft360/SocialMediaApp/main/version.json';
-  static final Dio _dio = Dio();
 
-  /// Startup par call karo — agar update available ho to UpdateInfo return karta hai
+  static final Dio _dio = Dio(BaseOptions(
+    responseType: ResponseType.plain, // JSON string ke roop mein lo
+  ));
+
   static Future<UpdateInfo?> checkForUpdate() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       final currentBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
+
+      print('=== UPDATE CHECK === App build: $currentBuild');
 
       final res = await _dio
           .get(_versionCheckUrl)
@@ -54,25 +48,26 @@ class UpdateService {
 
       if (res.statusCode != 200 || res.data == null) return null;
 
-      final info = UpdateInfo.fromJson(
-        res.data is Map ? res.data as Map<String, dynamic> : {},
-      );
+      // ResponseType.plain se string milti hai — json decode karo
+      final jsonData = json.decode(res.data.toString()) as Map<String, dynamic>;
+      final info = UpdateInfo.fromJson(jsonData);
+
+      print('GitHub build: ${info.latestBuild}, App build: $currentBuild');
 
       if (info.latestBuild > currentBuild) return info;
       return null;
-    } catch (_) {
-      return null; // silently fail — update check optional hai
+    } catch (e) {
+      print('UPDATE CHECK ERROR: $e');
+      return null;
     }
   }
 
-  /// APK download karo aur install prompt show karo
   static Future<void> downloadAndInstall(
       UpdateInfo info, {
         required void Function(double progress) onProgress,
         required void Function(String error) onError,
       }) async {
     try {
-      // Android 8+ ke liye install permission
       if (!await Permission.requestInstallPackages.isGranted) {
         final status = await Permission.requestInstallPackages.request();
         if (!status.isGranted) {
@@ -85,7 +80,8 @@ class UpdateService {
           await getApplicationDocumentsDirectory();
       final savePath = '${dir.path}/growthcraft_update.apk';
 
-      await _dio.download(
+      final dlDio = Dio();
+      await dlDio.download(
         info.apkUrl,
         savePath,
         onReceiveProgress: (received, total) {
